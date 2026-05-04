@@ -4,6 +4,7 @@ function math.clamp(min, n, max)
     return math.min(math.max(n, min), max)
 end
 
+-- interpolates a value
 function math.lerp(a, b, t)
     return a + (b - a) * t
 end
