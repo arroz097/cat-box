@@ -1,6 +1,6 @@
 local ansi = require("libs.ansi")
 local util = require("libs.utility")
-local mathLib = require("libs.math")
+local mathlib = require("libs.math")
 
 local xPos, yPos = 0, 0
 local rot = 0.1
@@ -20,8 +20,8 @@ local width, height = love.graphics.getDimensions()
 local centerX = width / 2
 local centerY = height / 2
 
-local lerp = mathLib.lerp
-local clamp = mathLib.clamp
+local lerp = mathlib.lerp
+local clamp = mathlib.clamp
 
 local coroutines = {}
 
@@ -51,6 +51,12 @@ sleepSound:play()
 
 -- fazer sistema de energia ao acordar o gato
 
+local function sayHello(i)
+	print("Hello world "..i)
+end
+
+util.loopFunc(1, 10, sayHello)
+
 local state = {
 	["idle"] = "idle",
 	["walk"] = "walk",
@@ -70,7 +76,6 @@ local cat = {
 		x = 0.27,
 		y = 0.27,
 	},
-
 	state = state.sleep
 }
 
@@ -78,13 +83,37 @@ local cat = {
 local function delay(delay, fn)
     local co = coroutine.create(function()
         local timer = 0
-        while timer < delay do
-            timer = timer + coroutine.yield()
+        while timer < delay do -- cronometro enquanto timer for menor que o delay
+            timer = timer + coroutine.yield() -- pausa a coroutine até atingir o delay e o yield retorna o dt, acumulando o timer
         end
-        fn()
+        fn() -- executa a funçao pós o delay que o while proporciona
     end)
+
     coroutine.resume(co) -- inicia
     return co
+end
+
+local function tween(from, to, speed, fn)
+	local co = coroutine.create(function()
+		local value = from
+
+		while true do
+			-- coroutine.yield semanticamente deveria ser depois, mas coroutine.resume está chamando em loop no dt
+			-- então visuualmente não há interferencia na execução
+			local dt = coroutine.yield()
+			if math.abs(value - to) < 0.001 then
+				break
+			end
+			value = lerp(value, to, speed * dt * 60)
+			fn(value)
+		end
+
+		--print("finished coroutine")
+
+	end)
+
+	coroutine.resume(co)
+	return co
 end
 
 local function update(image)
@@ -93,9 +122,9 @@ local function update(image)
 	imgHeight = image:getHeight()
 end
 
-
 local function scaleSize(size)
-	cat.size.x = size
+	local signal = cat.size.x < 0 and -1 or 1
+	cat.size.x = math.abs(size) * signal
 	cat.size.y = size
 end
 
@@ -131,7 +160,7 @@ local function catMovement(dt)
     -- normaliza se tiver movimento em mais de uma direção
     -- usa raiz quadrada pra normalizar e impedir a soma dos vetores na diagonal
     local length = math.sqrt(dx * dx + dy * dy) -- teorema de pitagoras
-    if length > 0 then
+    if length > 1 then -- > 0 ou > 1, deixarei 1 assim por ser mais "eficiente", já que a diagonal só começa no 1.4
 		dx = dx / length
 		dy = dy / length
     end
@@ -139,7 +168,7 @@ local function catMovement(dt)
     xPos = xPos + dx * 100 * dt
     yPos = yPos + dy * 100 * dt
 
-    -- utilizar logica clamp e width/height da tela para limitar a tela
+    -- utilizar logica clamp e width/height da tela para limitar os valores
 
     -- centerX + xPos * velocity é a posição final do gato na tela
     -- print(clamp(centerX + xPos * velocity, -40, width))
@@ -166,19 +195,19 @@ local function onCat(mouseX, mouseY)
 
 	if mouseX >= catDrawX - halfW and mouseX <= catDrawX + halfW and mouseY >= catDrawY - halfH and mouseY <= catDrawY + halfH then
 		return true
-	else
-		return false
 	end
+
+	return false
 end
 
 
-local function onHover(mouseX, mouseY)
+local function catHover(mouseX, mouseY)
 	local hover = onCat(mouseX, mouseY)
 	if cat.state ~= state.sleep then return end
 
 	-- reformular depois pra funçao de detecção geral
 	if hover then
-		scaleSize(lerp(cat.size.x, 0.3, 0.03))
+		scaleSize(lerp(cat.size.x, 0.3, 0.05))
 	else
 		scaleSize(lerp(cat.size.x, 0.27, 0.05))
 	end
@@ -198,7 +227,13 @@ local function wakeUp()
 	meow:play()
 
 	update(cat.image.idle)
-	scaleSize(0.5)
+	--scaleSize(0.5)
+
+	local effect = tween(0.5, 0.6, 0.05, function(value)
+		scaleSize(value)
+	end)
+
+	table.insert(coroutines, effect)
 
 	cat.state = state.idle
 
@@ -210,12 +245,12 @@ local function wakeUp()
 		actualTheme:play()
 	end)
 
-	-- adiciona de forma manual á tabela que atualiza em love.update
+	-- adiciona de forma manual à tabela que atualiza em love.update
 	table.insert(coroutines, co)
 
 end
 
--- // FUNÇÔES LOVE // --
+-- // FUNÇÕES LOVE // --
 
 function love.load() -- roda uma vez apenas
 
@@ -232,20 +267,27 @@ end
 function love.update(dt) -- atualiza constantemente em delta time
 	local mouseX, mouseY = love.mouse.getPosition()
 
-	onHover(mouseX, mouseY)
+	catHover(mouseX, mouseY)
 	catMovement(dt)
+
+	if love.mouse.isDown(1) then
+		--print( "m1 being held" )
+	end
 
 	if fadeTheme then
 		volume = lerp(volume, 0.35, 0.01)
 		actualTheme:setVolume(volume)
 	end
 
-	-- -1 é um decrementador, itera diminuindo de trás pra frente
+	-- -1 é um decrementador, itera diminuindo de um em um
+	-- a iteração de trás pra frente é feita pois a remoçao de indices nao afeta a ordem
+	-- caso fosse do inicio a remoçao, causaria deslocamente nos indices especialemnte em delays simultaneos
 	for i = #coroutines, 1, -1 do
 		local co = coroutines[i]
 		local ok = coroutine.resume(co, dt)
+		--print(ok)  ->  true
 		if not ok or coroutine.status(co) == "dead" then
-			table.remove(coroutines, i)
+			table.remove(coroutines, i) -- remove de trás pra frente os índices devido ao -1
 		end
 	end
 
