@@ -6,4 +6,15 @@ function utility.printLoop(iterations)
 	end
 end
 
+function utility.loopFunc(start, finish, step, func)
+    if func == nil then
+        func = step
+        step = 1
+    end
+
+    for iteration = start, finish, step do
+        func(iteration)
+    end
+end
+
 return utility
