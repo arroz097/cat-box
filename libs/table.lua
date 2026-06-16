@@ -2,7 +2,9 @@ local table = {}
 
 function table.find(t, value)
     for i, v in ipairs(t) do
-        if v == value then return i end
+        if v == value then
+            return i
+        end
     end
     return nil
 end
@@ -32,7 +34,7 @@ end
 function table.removeValue(t, value)
     -- Se o primeiro índice for número, tratamos como lista ordenada
     local iterador = (t[1] ~= nil) and ipairs or pairs
-    
+
     for i, v in iterador(t) do
         if v == value then
             if type(i) == "number" then

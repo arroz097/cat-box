@@ -2,13 +2,12 @@ local ansi = require("libs.ansi")
 local util = require("libs.utility")
 local mathlib = require("libs.math")
 
+local Cat = require("instances.cat")
+
 local xPos, yPos = 0, 0
 local rot = 0.1
 local rotVelocity = 30
 local velocity = 3
-
-local fadeTheme = false
-local volume = 0
 
 local amplitude = 1
 local sine = 0
@@ -50,6 +49,10 @@ sleepSound:play()
 --step:play()
 
 -- fazer sistema de energia ao acordar o gato
+
+local jorge = Cat.new("jorge")
+
+jorge:roar()
 
 local function sayHello(i)
 	print("Hello world "..i)
@@ -219,7 +222,6 @@ local function wakeUp()
 
 	sleepSound:stop()
 
-	math.randomseed(os.time())
 	local pitch = math.random(7, 14) / 10
 
 	meow:setPitch(pitch)
@@ -240,9 +242,14 @@ local function wakeUp()
 	rot = 0
 
 	local co = delay(1, function()
-		--print("printado após 1 segundo!")
-		fadeTheme = true
+
 		actualTheme:play()
+
+		local fade = tween(0, 0.35, 0.01, function(volume)
+			actualTheme:setVolume(volume)
+		end)
+
+		table.insert(coroutines, fade)
 	end)
 
 	-- adiciona de forma manual à tabela que atualiza em love.update
@@ -274,11 +281,6 @@ function love.update(dt) -- atualiza constantemente em delta time
 		--print( "m1 being held" )
 	end
 
-	if fadeTheme then
-		volume = lerp(volume, 0.35, 0.01)
-		actualTheme:setVolume(volume)
-	end
-
 	-- -1 é um decrementador, itera diminuindo de um em um
 	-- a iteração de trás pra frente é feita pois a remoçao de indices nao afeta a ordem
 	-- caso fosse do inicio a remoçao, causaria deslocamente nos indices especialemnte em delays simultaneos
@@ -291,7 +293,7 @@ function love.update(dt) -- atualiza constantemente em delta time
 		end
 	end
 
-	sine = sine + 1
+	sine = sine + 60 * dt
 
 	-- fazer lerp no valor de transição
 	-- tentar arrumar depois e permitir animação idle junto de movimentação suave com seno
@@ -330,7 +332,14 @@ function love.draw() -- renderiza frame por frame imagens e afins
 	love.graphics.draw(bed, centerX, centerY, 0, 0.5, 0.5, bed:getWidth() / 2, bed:getHeight() / 2)
 
 	love.graphics.setColor(1, 1, 1, 1)
-	love.graphics.draw(currentCat, centerX + xPos * velocity, centerY + yPos * velocity, rot * amplitude * math.sin(sine/rotVelocity), cat.size.x, cat.size.y, imgWidth / 2, imgHeight / 2)
+	love.graphics.draw(currentCat, -- image
+		centerX + xPos * velocity, -- X pos
+		centerY + yPos * velocity, -- Y pos
+		rot * amplitude * math.sin(sine/rotVelocity), -- rotation
+		cat.size.x, -- scale X
+		cat.size.y, -- scale Y
+		imgWidth / 2, -- origin offset X
+		imgHeight / 2) -- origin offset Y
 
 end
 
